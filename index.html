@@ -36,4 +36,133 @@ function addMatch(e){e.preventDefault();const f=new FormData(e.target),home=f.ge
 function addNews(e){e.preventDefault();const f=new FormData(e.target);news.unshift({id:Date.now(),icon:'📰',category:f.get('category').trim(),title:f.get('title').trim(),summary:f.get('summary').trim(),date:'Added locally'});save();render();toast('Story added to demo newsroom')}
 function deleteMatch(id){if(!confirm('Delete this fixture from this browser?'))return;matches=matches.filter(m=>m.id!==id);save();render();toast('Fixture deleted')}function editStatus(id){const m=matches.find(x=>x.id===id);if(!m)return;const next=prompt('Set status: Upcoming, Live, or Finished',m.status);if(!next)return;const allowed=['Upcoming','Live','Finished'];if(!allowed.includes(next)){toast('Use Upcoming, Live, or Finished');return}m.status=next;save();render();toast('Status updated locally')}function resetDemo(){if(!confirm('Reset fixtures and news to the original sample data?'))return;matches=JSON.parse(JSON.stringify(initialMatches));news=JSON.parse(JSON.stringify(initialNews));save();render();toast('Sample data restored')}function exportData(){const blob=new Blob([JSON.stringify({matches,news,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='fieldside-demo-backup.json';a.click();URL.revokeObjectURL(url);toast('Backup export created')}
 render();
-</script></body></html>
+</script></body>
+
+<section id="real-scores">
+  <h2>Live Sports Scores</h2>
+
+  <button onclick="loadScores()">Refresh scores</button>
+
+  <div id="football-scores">
+    <h3>⚽ Football</h3>
+    <p>Loading football scores...</p>
+  </div>
+
+  <div id="cricket-scores">
+    <h3>🏏 Cricket</h3>
+    <p>Loading cricket scores...</p>
+  </div>
+
+  <p>
+    <a href="https://sportscore.com/"
+       rel="dofollow">
+      Powered by SportScore
+    </a>
+  </p>
+</section>
+
+<style>
+  #real-scores {
+    padding: 20px;
+    color: #f4f7fb;
+    background: #101b2d;
+    border-radius: 12px;
+    font-family: Arial, sans-serif;
+  }
+
+  .score-card {
+    background: #1b2a40;
+    border: 1px solid #34445c;
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+  }
+
+  .score-card p {
+    margin: 8px 0;
+  }
+
+  #real-scores button {
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+</style>
+
+<script>
+async function loadSport(sport, containerId) {
+  const container = document.getElementById(containerId);
+
+  container.innerHTML =
+    "<h3>" + (sport === "football" ? "⚽ Football" : "🏏 Cricket") +
+    "</h3><p>Loading matches...</p>";
+
+  try {
+    const url =
+      "https://sportscore.com/api/widget/matches/?sport=" +
+      sport + "&limit=20";
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("API request failed");
+    }
+
+    const result = await response.json();
+    const matches = Array.isArray(result.matches)
+      ? result.matches
+      : [];
+
+    container.innerHTML =
+      "<h3>" + (sport === "football" ? "⚽ Football" : "🏏 Cricket") +
+      "</h3>";
+
+    if (!matches.length) {
+      container.innerHTML +=
+        "<p>No matches returned. Try again later.</p>";
+      return;
+    }
+
+    matches.forEach(match => {
+      const card = document.createElement("div");
+      card.className = "score-card";
+
+      const status = String(match.status_text || match.status || "Status unavailable");
+      const home = String(match.home || "Home team");
+      const away = String(match.away || "Away team");
+
+      const score = sport === "football"
+        ? (match.home_score ?? "-") + " - " + (match.away_score ?? "-")
+        : (match.home_score ?? "-") + " - " + (match.away_score ?? "-");
+
+      const teams = document.createElement("strong");
+      teams.textContent = home + " vs " + away;
+
+      const scoreLine = document.createElement("p");
+      scoreLine.textContent = "Score: " + score;
+
+      const statusLine = document.createElement("p");
+      statusLine.textContent = "Status: " + status;
+
+      card.append(teams, scoreLine, statusLine);
+      container.appendChild(card);
+    });
+  } catch (error) {
+    container.innerHTML =
+      "<h3>" + sport + "</h3>" +
+      "<p>Could not load scores. Check your internet and try again.</p>";
+  }
+}
+
+async function loadScores() {
+  await Promise.all([
+    loadSport("football", "football-scores"),
+    loadSport("cricket", "cricket-scores")
+  ]);
+}
+
+loadScores();
+setInterval(loadScores, 60000);
+</script>
+</html>
